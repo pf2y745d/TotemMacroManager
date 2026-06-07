@@ -25,11 +25,14 @@ TMM_DB = TMM_DB or {slots = {air = "", earth = "", fire = "", water = ""}, pos =
 local frame = CreateFrame("Frame", "TMM_Frame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+frame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+frame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 
 local queuedUpdate = false
 
 -- lists of available totems discovered in the player's spellbook
 local totemLists = {air = {}, earth = {}, fire = {}, water = {}}
+local dropdowns = {}
 
 local function addUnique(tbl, val)
   for _, v in ipairs(tbl) do if v == val then return end end
@@ -58,9 +61,9 @@ local function BuildTotemLists()
           addUnique(totemLists.water, spellName)
         elseif lower:find("air") or lower:find("wind") or lower:find("grace") then
           addUnique(totemLists.air, spellName)
-        elseif lower:find("earth") or lower:find("stone") or lower:find("strength") then
+        elseif lower:find("earth") or lower:find("stone") or lower:find("strength") or lower:find("tremor") then
           addUnique(totemLists.earth, spellName)
-        elseif lower:find("fire") or lower:find("flame") or lower:find("magma") or lower:find("searing") then
+        elseif lower:find("fire") or lower:find("flame") or lower:find("magma") or lower:find("searing") or lower:find("wrath") then
           addUnique(totemLists.fire, spellName)
         elseif lower:find("water") or lower:find("stream") or lower:find("mana") or lower:find("tide") then
           addUnique(totemLists.water, spellName)
@@ -88,8 +91,11 @@ local function BuildTotemLists()
   end
 end
 
+local ApplyMacro
+
 local function CreateDropdown(parent, x, y, width, element)
   local dd = CreateFrame("Frame", "TMM_Dropdown_"..element, parent, "UIDropDownMenuTemplate")
+  dropdowns[element] = dd
   dd:SetPoint("TOPLEFT", x, y)
   UIDropDownMenu_SetWidth(dd, width)
   UIDropDownMenu_Initialize(dd, function(self, level)
@@ -98,7 +104,6 @@ local function CreateDropdown(parent, x, y, width, element)
       UIDropDownMenu_SetSelectedValue(dd, btn.value)
       UIDropDownMenu_SetText(dd, btn.text)
       UIDropDownMenu_Refresh(dd)
-      ApplyMacro()
     end
 
     local info = UIDropDownMenu_CreateInfo()
@@ -128,6 +133,30 @@ local function CreateDropdown(parent, x, y, width, element)
   return dd
 end
 
+local function ResetTotemSelections()
+  TMM_DB.slots.air = ""
+  TMM_DB.slots.earth = ""
+  TMM_DB.slots.fire = ""
+  TMM_DB.slots.water = ""
+
+  for _, dd in pairs(dropdowns) do
+    UIDropDownMenu_SetSelectedValue(dd, "")
+    UIDropDownMenu_SetText(dd, "None")
+    UIDropDownMenu_Refresh(dd)
+  end
+end
+
+local function RefreshDropdowns()
+  for _, dd in pairs(dropdowns) do
+    UIDropDownMenu_Refresh(dd)
+  end
+end
+
+local function RebuildTotemLists()
+  BuildTotemLists()
+  ResetTotemSelections()
+end
+
 local function BuildMacroBody()
   local slots = TMM_DB.slots
   local seq = {}
@@ -140,7 +169,7 @@ local function BuildMacroBody()
   return "/castsequence reset=15 " .. table.concat(seq, ", ")
 end
 
-local function ApplyMacro()
+ApplyMacro = function()
   if InCombatLockdown() or UnitAffectingCombat("player") then
     queuedUpdate = true
     DEFAULT_CHAT_FRAME:AddMessage("[TMM] In combat: macro update queued until you leave combat.")
@@ -243,5 +272,11 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
       queuedUpdate = false
       ApplyMacro()
     end
+  elseif event == "PLAYER_SPECIALIZATION_CHANGED" then
+    if arg1 == "player" or not arg1 then
+      RebuildTotemLists()
+    end
+  elseif event == "ACTIVE_TALENT_GROUP_CHANGED" then
+    RebuildTotemLists()
   end
 end)
