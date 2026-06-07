@@ -1,0 +1,9 @@
+# TotemMacroManager.toc
+## Interface: 20502
+## Title: TotemMacroManager
+## Author: Generated
+## Version: 0.1
+## Notes: Auto-builds a castsequence macro from selected totems
+## SavedVariables: TMM_DB
+
+TotemMacroManager.lua
